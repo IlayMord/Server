@@ -6,10 +6,13 @@ import boto3
 PORT = 80
 
 #The bucket name
-BUCKET = "ilay-bucket-devops" 
+BUCKET = "jblabs-ilay-bucket" 
 
 s3 = boto3.client("s3")
 
+import os
+print("USER:", os.getenv("USER"))
+print("HOME:", os.getenv("HOME"))
 
 class UploadHandler(http.server.BaseHTTPRequestHandler):
 
