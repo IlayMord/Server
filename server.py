@@ -4,9 +4,11 @@ import urllib.parse
 import cgi
 import boto3
 import os
+import ssl
 
-PORT = 80
-BUCKET = "jblabs-ilay-bucket"
+
+PORT = 443
+BUCKET = "ilay-bucket1"
 
 s3 = boto3.client("s3")
 
@@ -199,7 +201,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             form = cgi.FieldStorage(
                 fp=self.rfile,
                 headers=self.headers,
-                environ={{"REQUEST_METHOD": "POST"}}
+                environ={"REQUEST_METHOD": "POST"}
             )
 
             file_field = form["file"]
@@ -220,5 +222,12 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
 
 
 with socketserver.TCPServer(("", PORT), UploadHandler) as httpd:
-    print(f"Serving S3 manager on port {PORT}")
+    print(f"Serving S3 manager on port {PORT} (HTTPS)")
+
+    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.load_cert_chain(certfile="cert.pem", keyfile="key.pem")
+
+    httpd.socket = context.wrap_socket(httpd.socket, server_side=True)
+
     httpd.serve_forever()
+
