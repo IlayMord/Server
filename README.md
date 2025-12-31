@@ -1,45 +1,34 @@
-**S3 File Manager (HTTPS Python Server)**
+# S3 File Manager (HTTPS)
 
-A lightweight Python server that lets you manage files in an AWS S3 bucket through a simple web page.
-You can view files, upload new files, download files, and delete files.
-The server runs over HTTPS on port 443 using a local SSL certificate.
+A simple Python web server for managing files in an Amazon S3 bucket via a browser.  
+The interface supports uploading, downloading, and deleting files over a secure HTTPS connection.
 
-Project Files
-• server.py — the HTTPS S3 file-manager server
-• starter.sh — setup script that creates the SSL certificate and installs AWS CLI
+---
 
-Requirements
-• Linux (Ubuntu / Debian recommended)
-• Python 3.9 or higher
-• sudo permissions
-• AWS credentials with S3 access
-• boto3 installed (pip install boto3)
+## ✨ Features
+- Verifies that **AWS CLI** is installed (runs `starter.sh` if missing)
+- Ensures SSL certificate files (`cert.pem`, `key.pem`) exist — generates new ones if needed
+- Runs an HTTPS server on port **443**
+- Lists files from the configured S3 bucket
+- Supports:
+  - Uploading files to S3
+  - Downloading files to `/tmp`
+  - Deleting files from S3
 
-Configuration
-At the top of server.py set:
-PORT = 443
-BUCKET = "ilay-bucket1"
+---
 
-Running the Setup Script
-chmod +x starter.sh
-./starter.sh
+## 🔧 Requirements
+- Python 3
+- `boto3`
+- `openssl`
+- Valid AWS credentials
+- Existing S3 bucket
 
-The script creates:
-• cert.pem
-• key.pem
-Both files must remain in the same folder as server.py
+> Default bucket: `ilay-bucket1` (can be changed in the code)
 
-Running the Server
+---
+
+## 🚀 Run
+
+```bash
 sudo python3 server.py
-
-Opening the Web Page
-https://<server-ip>/
-
-What You Get
-• File list from the S3 bucket
-• Upload option
-• Download and delete actions
-
-Notes
-• A self-signed certificate may show a browser warning
-• For public use, it is recommended to add authentication and use a trusted TLS certificate
