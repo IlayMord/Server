@@ -6,8 +6,12 @@ The interface supports uploading, downloading, and deleting files over a secure 
 ---
 
 ## ✨ Features
-- Verifies that **AWS CLI** is installed (runs `starter.sh` if missing)
-- Ensures SSL certificate files (`cert.pem`, `key.pem`) exist — generates new ones if needed
+- Automatically installs:
+  - `python3-pip`
+  - Project dependencies from `requirements.txt`
+  - `curl` and `unzip`
+  - AWS CLI v2 (only if missing)
+- Ensures SSL certificate files (`cert.pem`, `key.pem`) exist — generates them if needed
 - Runs an HTTPS server on port **443**
 - Lists files from the configured S3 bucket
 - Supports:
@@ -18,14 +22,20 @@ The interface supports uploading, downloading, and deleting files over a secure 
 ---
 
 ## 🔧 Requirements
+- Ubuntu / Linux environment  
 - Python 3  
 - `openssl`  
 - Valid AWS credentials  
 - Existing S3 bucket  
 
-> Default bucket: `ilay-bucket1` (can be changed in the code)
+> Default bucket: `ilay-bucket1` (can be changed inside the code)
 
-### 📦 Install Python dependencies
+---
+
+## ⚙️ Setup (Auto-Bootstrap)
+
+Run the setup script — it will prepare everything automatically:
 
 ```bash
-pip install -r requirements.txt
+chmod +x starter.sh
+./starter.sh
