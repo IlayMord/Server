@@ -18,17 +18,14 @@ The interface supports uploading, downloading, and deleting files over a secure 
 ---
 
 ## 🔧 Requirements
-- Python 3
-- `boto3`
-- `openssl`
-- Valid AWS credentials
-- Existing S3 bucket
+- Python 3  
+- `openssl`  
+- Valid AWS credentials  
+- Existing S3 bucket  
 
 > Default bucket: `ilay-bucket1` (can be changed in the code)
 
----
-
-## 🚀 Run
+### 📦 Install Python dependencies
 
 ```bash
-sudo python3 server.py
+pip install -r requirements.txt
