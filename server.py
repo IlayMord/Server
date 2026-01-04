@@ -10,7 +10,7 @@ def ensure_environment_ready():
         except Exception:
             return True
 
-        # SSL חייב להיות קיים לפני שמרימים HTTPS
+        # SSL files must exist before starting HTTPS
         if not os.path.exists("cert.pem") or not os.path.exists("key.pem"):
             return True
 
@@ -22,12 +22,12 @@ def ensure_environment_ready():
     print("⚠ Environment not ready — running starter.sh...")
 
     if not os.path.exists("starter.sh"):
-        print("❌ starter.sh missing — cannot auto-setup")
+        print("❌ starter.sh is missing — automatic setup cannot continue")
         sys.exit(1)
 
     subprocess.run(["bash", "starter.sh"], check=True)
 
-    # מריץ את אותו תהליך מחדש אחרי שהסביבה מוכנה
+    # Relaunch the same process after the environment has been prepared
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 ensure_environment_ready()
@@ -64,7 +64,7 @@ s3 = build_s3(config) if config.get("aws") else None
 # ---------- HTTP HANDLER ----------
 class UploadHandler(http.server.BaseHTTPRequestHandler):
 
-    # ===== CSS מקצועי + Light/Dark =====
+    # ===== Polished CSS + Light/Dark mode =====
     def css(self):
         return """
         <style>
@@ -312,7 +312,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         </style>
         """
 
-    # ===== JS: Theme + Search + Upload progress =====
+    # ===== JavaScript: theme toggling, search, and upload progress =====
     def scripts(self):
         return """
         <script>
@@ -410,7 +410,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
         global config, s3
 
-        # אין bucket עדיין
+        # No bucket has been configured yet
         if not config.get("bucket"):
             html = f"""
             <html><head>{self.css()}{self.scripts()}</head>
@@ -429,7 +429,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             """
             return self.respond(html)
 
-        # אין credentials
+        # AWS credentials are not configured yet
         if not config.get("aws") or not s3:
             html = f"""
             <html><head>{self.css()}{self.scripts()}</head>
@@ -481,7 +481,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             except Exception:
                 return self.respond("<html><body>Delete failed</body></html>")
 
-        # ===== LIST (עם תיקיות) =====
+        # ===== List objects with folder-style prefixes =====
         try:
             resp = s3.list_objects_v2(
                 Bucket=config["bucket"],
@@ -647,7 +647,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
                 s3.put_object(Bucket=config["bucket"], Key=key, Body=b"")
             return self.respond("<script>location='/'</script>")
 
-        # upload (כולל prefix)
+        # Handle upload (including prefix when provided)
         try:
             form = cgi.FieldStorage(
                 fp=self.rfile,
