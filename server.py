@@ -1,34 +1,7 @@
 #!/usr/bin/env python3
 
-# ========= AUTO-BOOTSTRAP =========
-import os, sys, subprocess
-
-def ensure_environment_ready():
-    def need_bootstrap():
-        try:
-            import boto3
-        except Exception:
-            return True
-        return False
-
-    if not need_bootstrap():
-        return
-
-    print("⚠ Environment not ready — running setup.sh...")
-
-    if not os.path.exists("setup.sh"):
-        print("❌ setup.sh is missing — automatic setup cannot continue")
-        sys.exit(1)
-
-    subprocess.run(["bash", "setup.sh"], check=True)
-
-    # Relaunch after environment is ready
-    os.execv(sys.executable, [sys.executable] + sys.argv)
-
-ensure_environment_ready()
-# ==================================
-
 import http.server, socketserver, urllib.parse, cgi
+import os
 import boto3, ssl, json
 
 def resolve_port():
