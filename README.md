@@ -1,9 +1,9 @@
-# S3 File Manager
+# S3 File Manager 🚀
 
 A lightweight Python web UI for browsing and managing files in an Amazon S3 bucket.
-The server runs locally and stores credentials in a local config file.
+Runs locally and stores configuration on the server.
 
-## Features
+## ✨ Features
 - Web UI for listing, uploading (multi-file), downloading, deleting, and creating folders
 - Prefix navigation with breadcrumbs
 - Search with server-side pagination
@@ -16,24 +16,24 @@ The server runs locally and stores credentials in a local config file.
 - Optional basic auth (username/password)
 - Theme toggle (light/dark)
 
-## Requirements
+## ✅ Requirements
 - Python 3.8+
 - AWS credentials with access to the target S3 bucket
 - Existing S3 bucket
 
-## Install
+## 📦 Install
 ```bash
 python3 -m pip install -r requirements.txt
 ```
 
-## Run
+## ▶️ Run
 ```bash
 python3 server.py
 ```
 
 Then open `http://localhost:80` in your browser (or the port you set).
 
-## Configuration
+## ⚙️ Configuration
 The app stores configuration in:
 - `~/.s3-file-manager/app_config.json` (preferred)
 - `/tmp/s3-file-manager/app_config.json` (fallback)
@@ -44,6 +44,6 @@ You can override paths/ports with environment variables:
 - `S3MGR_USERNAME` (default: `admin`)
 - `S3MGR_PASSWORD` (empty means no auth)
 
-## Notes
+## 📝 Notes
 - `/download` streams to the browser. `/download-server` saves to `/tmp/<filename>` on the server host.
 - Credentials are stored locally on the server and are not encrypted.

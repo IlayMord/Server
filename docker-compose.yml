@@ -1,0 +1,8 @@
+services:
+  s3mgr:
+    image: s3-file-manager
+    container_name: s3mgr
+    ports:
+      - "80:80"
+    volumes:
+      - ./data:/app/data
