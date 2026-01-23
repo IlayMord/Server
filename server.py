@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
 import http.server, socketserver, urllib.parse, cgi
+import base64
+import html
+import mimetypes
+import time
 import os
 import sys
 import boto3, ssl, json
@@ -30,6 +34,8 @@ CONFIG_DIR = resolve_config_dir()
 CONFIG_FILE = os.path.join(CONFIG_DIR, "app_config.json")
 LEGACY_CONFIG_FILE = os.path.join(os.path.dirname(__file__), "app_config.json")
 CONFIG_ERROR = ""
+AUTH_USER = os.getenv("S3MGR_USERNAME", "admin")
+AUTH_PASSWORD = os.getenv("S3MGR_PASSWORD", "")
 
 
 # ---------- CONFIG ----------
@@ -263,6 +269,13 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           width: 100%;
           max-width: 1100px;
         }
+        .section-title {
+          margin: 18px 0 10px;
+          font-size: 13px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: var(--text-muted);
+        }
         h2 {
           margin-top:0;
           font-size:22px;
@@ -339,6 +352,12 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           border-color: var(--accent-2);
           box-shadow: 0 0 0 2px rgba(34,211,238,0.25);
         }
+        .input:focus-visible,
+        .btn:focus-visible,
+        a:focus-visible {
+          outline: 2px solid rgba(34,211,238,0.5);
+          outline-offset: 2px;
+        }
         .btn {
           padding: 8px 14px;
           border-radius: 10px;
@@ -367,6 +386,10 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           box-shadow: 0 0 0 2px rgba(56,189,248,0.15);
           color: var(--text);
         }
+        .btn.warn {
+          background: linear-gradient(135deg, #fb923c, #f97316);
+          color: #1f1306;
+        }
         table {
           width:100%;
           border-collapse: collapse;
@@ -377,11 +400,18 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           border-bottom: 1px solid var(--border-subtle);
           font-size: 13px;
         }
+        tbody tr:hover {
+          background: rgba(14,165,233,0.08);
+        }
         th {
           color: var(--text-soft);
           text-transform: uppercase;
           letter-spacing: 0.05em;
           font-size: 11px;
+        }
+        th.col-select, td.col-select {
+          width: 28px;
+          text-align: center;
         }
         td.size {
           color: var(--text-muted);
@@ -495,6 +525,18 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           gap:12px;
           margin-top: 8px;
         }
+        .toolbar-group {
+          display:flex;
+          align-items:center;
+          gap:10px;
+          flex-wrap:wrap;
+        }
+        .toolbar form {
+          display:flex;
+          align-items:center;
+          gap:8px;
+          flex-wrap:wrap;
+        }
         .toolbar .left, .toolbar .right {
           display:flex;
           align-items:center;
@@ -573,6 +615,82 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         }
         .table-scroll {
           overflow-x: auto;
+        }
+        .checkbox {
+          width: 16px;
+          height: 16px;
+          accent-color: var(--accent-2);
+        }
+        .bulk-bar {
+          display:flex;
+          flex-wrap:wrap;
+          gap:10px;
+          align-items:center;
+          margin-top: 12px;
+          padding: 10px 12px;
+          border-radius: 12px;
+          border: 1px solid var(--border-subtle);
+          background: rgba(15,23,42,0.35);
+        }
+        .bulk-bar.hidden {
+          display:none;
+        }
+        body[data-theme="light"] .bulk-bar {
+          background: #f8fafc;
+        }
+        .bulk-input {
+          max-width: 220px;
+        }
+        .mono {
+          font-family: "Space Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .pager {
+          display:flex;
+          justify-content:flex-end;
+          gap:8px;
+          margin-top: 14px;
+        }
+        .preview-wrap {
+          max-width: 900px;
+          margin: 40px auto;
+          padding: 0 16px 40px;
+        }
+        .preview-card {
+          background: var(--bg-card);
+          border-radius: 18px;
+          border: 1px solid var(--border-subtle);
+          padding: 20px;
+          box-shadow: var(--shadow);
+        }
+        .preview-header {
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:12px;
+          margin-bottom: 16px;
+        }
+        .preview-frame {
+          width:100%;
+          border-radius: 14px;
+          border: 1px solid var(--border-subtle);
+          background: rgba(15,23,42,0.2);
+          padding: 12px;
+          word-break: break-all;
+          overflow-wrap: anywhere;
+        }
+        .share-box {
+          background: linear-gradient(135deg, rgba(14,165,233,0.12), rgba(45,212,191,0.12));
+          border: 1px solid rgba(56,189,248,0.35);
+          color: var(--text);
+          font-size: 12px;
+          line-height: 1.5;
+          min-height: 88px;
+          display: flex;
+          align-items: center;
+          white-space: normal;
+          overflow-wrap: anywhere;
+          word-break: break-word;
+          overflow: auto;
         }
         .dropzone {
           display:flex;
@@ -663,6 +781,52 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           opacity: 1;
           transform: translateY(0);
         }
+        .modal-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(2, 6, 23, 0.6);
+          display: none;
+          align-items: center;
+          justify-content: center;
+          z-index: 30;
+          padding: 16px;
+        }
+        .modal {
+          width: 100%;
+          max-width: 420px;
+          border-radius: 16px;
+          border: 1px solid var(--border-subtle);
+          background: var(--bg-card);
+          box-shadow: var(--shadow);
+          padding: 18px;
+        }
+        .modal h3 {
+          margin: 0 0 8px;
+          font-size: 16px;
+        }
+        .modal p {
+          margin: 0 0 14px;
+          color: var(--text-muted);
+          font-size: 13px;
+        }
+        .modal-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 8px;
+        }
+        .modal-backdrop.show {
+          display: flex;
+        }
+        .modal input {
+          width: 100%;
+          margin: 8px 0 12px;
+          padding: 10px 11px;
+          border-radius: 10px;
+          border: 1px solid var(--border-subtle);
+          background: transparent;
+          color: var(--text);
+          font-size: 14px;
+        }
         .is-hidden {
           display:none !important;
         }
@@ -688,8 +852,8 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           .card {
             padding: 18px;
           }
-          th:nth-child(3), td:nth-child(3),
-          th:nth-child(4), td:nth-child(4) {
+          th:nth-child(4), td:nth-child(4),
+          th:nth-child(5), td:nth-child(5) {
             display:none;
           }
           .grid {
@@ -857,6 +1021,73 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           toast.classList.add('show');
           setTimeout(function() { toast.classList.remove('show'); }, 1400);
         }
+        function openModal(opts) {
+          var modal = document.getElementById('confirmModal');
+          if (!modal) return;
+          var titleEl = document.getElementById('confirmTitle');
+          var msgEl = document.getElementById('confirmMessage');
+          var okBtn = document.getElementById('confirmOk');
+          var cancelBtn = document.getElementById('confirmCancel');
+          var input = document.getElementById('confirmInput');
+          if (titleEl) titleEl.textContent = opts.title || 'Confirm';
+          if (msgEl) msgEl.textContent = opts.message || '';
+          if (okBtn) okBtn.textContent = opts.okText || 'OK';
+          if (cancelBtn) cancelBtn.textContent = opts.cancelText || 'Cancel';
+          if (input) {
+            input.value = opts.inputValue || '';
+            input.placeholder = opts.inputPlaceholder || '';
+            input.classList.toggle('is-hidden', !opts.showInput);
+            input.readOnly = !!opts.readOnly;
+          }
+          function close() {
+            modal.classList.remove('show');
+            okBtn.removeEventListener('click', okHandler);
+            cancelBtn.removeEventListener('click', close);
+            modal.removeEventListener('click', backdropClose);
+          }
+          function okHandler() {
+            var value = input ? input.value : '';
+            close();
+            if (opts.onConfirm) opts.onConfirm(value);
+          }
+          function backdropClose(e) {
+            if (e.target === modal) close();
+          }
+          okBtn.addEventListener('click', okHandler);
+          cancelBtn.addEventListener('click', close);
+          modal.addEventListener('click', backdropClose);
+          modal.classList.add('show');
+          if (input && opts.showInput) {
+            setTimeout(function() { input.focus(); input.select(); }, 50);
+          }
+        }
+        function showConfirm(title, message, onConfirm) {
+          openModal({ title: title, message: message, okText: 'Delete', onConfirm: onConfirm });
+        }
+        function showAlert(title, message) {
+          openModal({ title: title, message: message, okText: 'OK', cancelText: 'Close' });
+        }
+        function showPrompt(title, message, defaultValue, onConfirm) {
+          openModal({
+            title: title,
+            message: message,
+            okText: 'Save',
+            showInput: true,
+            inputValue: defaultValue || '',
+            onConfirm: onConfirm
+          });
+        }
+        function showCopyFallback(text) {
+          openModal({
+            title: 'Copy URL',
+            message: 'Copy the link below:',
+            okText: 'Done',
+            cancelText: 'Close',
+            showInput: true,
+            inputValue: text || '',
+            readOnly: true
+          });
+        }
         function initCopyButtons() {
           var buttons = document.querySelectorAll('[data-copy]');
           buttons.forEach(function(btn) {
@@ -868,7 +1099,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
                 navigator.clipboard.writeText(val);
                 showToast('Copied to clipboard');
               } else {
-                window.prompt('Copy URI', val);
+                showCopyFallback(val);
               }
             });
           });
@@ -876,6 +1107,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         function initDropzone() {
           var zone = document.getElementById('dropzone');
           var fileInput = document.getElementById('fileInput');
+          var fileLabel = document.getElementById('fileCount');
           if (!zone || !fileInput) return;
           ['dragenter','dragover'].forEach(function(evt) {
             zone.addEventListener(evt, function(e) {
@@ -892,6 +1124,9 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           zone.addEventListener('drop', function(e) {
             if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
               fileInput.files = e.dataTransfer.files;
+              if (fileLabel) {
+                fileLabel.textContent = e.dataTransfer.files.length + ' files selected';
+              }
             }
           });
         }
@@ -901,11 +1136,12 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           var bar = document.getElementById('progressFill');
           var wrap = document.getElementById('progressWrap');
           var txt = document.getElementById('progressText');
+          var fileLabel = document.getElementById('fileCount');
           form.addEventListener('submit', function(e) {
             e.preventDefault();
             var fileInput = document.getElementById('fileInput');
             if (!fileInput || !fileInput.files.length) {
-              alert('Choose a file first');
+              showAlert('Upload', 'Choose a file first');
               return;
             }
             wrap.style.display = 'block';
@@ -927,7 +1163,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
                 txt.textContent = 'Done';
                 setTimeout(function(){ window.location.reload(); }, 500);
               } else {
-                txt.textContent = 'Error ' + xhr.status;
+                txt.textContent = (xhr.responseText && xhr.responseText.trim()) ? xhr.responseText : ('Error ' + xhr.status);
               }
             };
             xhr.onerror = function() {
@@ -936,6 +1172,144 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
 
             var fd = new FormData(form);
             xhr.send(fd);
+          });
+          var fileInput = document.getElementById('fileInput');
+          if (fileInput && fileLabel) {
+            fileInput.addEventListener('change', function() {
+              var count = fileInput.files ? fileInput.files.length : 0;
+              fileLabel.textContent = count ? (count + ' files selected') : 'No files selected';
+            });
+          }
+        }
+        function getSelectedKeys() {
+          var boxes = document.querySelectorAll('.row-select:checked');
+          var keys = [];
+          boxes.forEach(function(box) {
+            var key = box.getAttribute('data-key');
+            if (key && keys.indexOf(key) === -1) {
+              keys.push(key);
+            }
+          });
+          return keys;
+        }
+        function syncCheckboxes(key, checked) {
+          var boxes = document.querySelectorAll('.row-select');
+          boxes.forEach(function(box) {
+            if (box.getAttribute('data-key') === key) {
+              box.checked = checked;
+            }
+          });
+        }
+        function updateSelectionCount() {
+          var label = document.getElementById('selectedCount');
+          var bar = document.getElementById('bulkBar');
+          if (!label) return;
+          var keys = getSelectedKeys();
+          label.textContent = keys.length + ' selected';
+          if (bar) {
+            bar.classList.toggle('hidden', keys.length === 0);
+          }
+        }
+        function initSelection() {
+          var boxes = document.querySelectorAll('.row-select');
+          boxes.forEach(function(box) {
+            box.addEventListener('change', function() {
+              var key = box.getAttribute('data-key');
+              syncCheckboxes(key, box.checked);
+              updateSelectionCount();
+            });
+          });
+          var selectAll = document.getElementById('selectAll');
+          if (selectAll) {
+            selectAll.addEventListener('change', function() {
+              var rows = document.querySelectorAll('.row-select');
+              rows.forEach(function(box) {
+                var container = box.closest('.is-hidden');
+                if (!container) {
+                  box.checked = selectAll.checked;
+                }
+              });
+              updateSelectionCount();
+            });
+          }
+          updateSelectionCount();
+        }
+        function submitBulk(action) {
+          var keys = getSelectedKeys();
+          if (!keys.length) {
+            showAlert('Bulk action', 'Select files or folders first');
+            return;
+          }
+          if (action === 'delete' && !confirm('Delete selected items?')) {
+            return;
+          }
+          var form = document.getElementById('bulkForm');
+          var target = document.getElementById('bulkTarget');
+          var targetHidden = document.getElementById('bulkTargetHidden');
+          if (!form) return;
+          form.querySelectorAll('input[name="keys"]').forEach(function(el) { el.remove(); });
+          keys.forEach(function(k) {
+            var input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'keys';
+            input.value = k;
+            form.appendChild(input);
+          });
+          var actionInput = document.getElementById('bulkAction');
+          if (actionInput) actionInput.value = action;
+          if ((action === 'move' || action === 'copy') && (!target || !target.value)) {
+            showAlert('Bulk action', 'Enter a target prefix');
+            return;
+          }
+          if (targetHidden) {
+            targetHidden.value = target && target.value ? target.value : '';
+          }
+          form.submit();
+        }
+        function initBulkActions() {
+          var deleteBtn = document.getElementById('bulkDelete');
+          var moveBtn = document.getElementById('bulkMove');
+          var copyBtn = document.getElementById('bulkCopy');
+          if (deleteBtn) {
+            deleteBtn.addEventListener('click', function(e) {
+              e.preventDefault();
+              showConfirm('Delete selected', 'Delete all selected items? This cannot be undone.', function() {
+                submitBulk('delete');
+              });
+            });
+          }
+          if (moveBtn) moveBtn.addEventListener('click', function(e) { e.preventDefault(); submitBulk('move'); });
+          if (copyBtn) copyBtn.addEventListener('click', function(e) { e.preventDefault(); submitBulk('copy'); });
+        }
+        function initDeleteLinks() {
+          var links = document.querySelectorAll('[data-delete-url]');
+          links.forEach(function(link) {
+            link.addEventListener('click', function(e) {
+              e.preventDefault();
+              var url = link.getAttribute('data-delete-url');
+              if (!url) return;
+              showConfirm('Delete item', 'Delete this item? This cannot be undone.', function() {
+                window.location.href = url;
+              });
+            });
+          });
+        }
+        function initRename() {
+          var renames = document.querySelectorAll('[data-rename]');
+          renames.forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+              e.preventDefault();
+              var key = btn.getAttribute('data-rename');
+              var current = btn.getAttribute('data-name') || key;
+              showPrompt('Rename item', 'Enter the new name', current, function(next) {
+                if (!next || next === current) return;
+                var form = document.getElementById('renameForm');
+                if (!form) return;
+                form.querySelector('input[name="old"]').value = key;
+                form.querySelector('input[name="new"]').value = next;
+                form.submit();
+              });
+            });
           });
         }
         document.addEventListener('DOMContentLoaded', function() {
@@ -970,6 +1344,10 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           initSort();
           initCopyButtons();
           initDropzone();
+          initSelection();
+          initBulkActions();
+          initRename();
+          initDeleteLinks();
         });
         </script>
         """
@@ -980,9 +1358,94 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(html.encode('utf-8'))
 
+    def respond_text(self, status, text, content_type="text/plain; charset=utf-8"):
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.end_headers()
+        self.wfile.write(text.encode("utf-8"))
+
+    def is_authenticated(self):
+        if not AUTH_PASSWORD:
+            return True
+        header = self.headers.get("Authorization", "")
+        if not header.startswith("Basic "):
+            return False
+        try:
+            encoded = header.split(" ", 1)[1].strip()
+            decoded = base64.b64decode(encoded).decode("utf-8")
+            user, pwd = decoded.split(":", 1)
+            return user == AUTH_USER and pwd == AUTH_PASSWORD
+        except Exception:
+            return False
+
+    def send_auth_required(self):
+        self.send_response(401)
+        self.send_header("WWW-Authenticate", 'Basic realm="S3 File Manager"')
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.end_headers()
+        self.wfile.write(b"Authentication required")
+
+    def presign_url(self, key, expires=900):
+        try:
+            return s3.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": config["bucket"], "Key": key},
+                ExpiresIn=expires
+            )
+        except Exception:
+            return ""
+
+    def stream_object(self, key, download=True, override_type=""):
+        try:
+            obj = s3.get_object(Bucket=config["bucket"], Key=key)
+            content_type = override_type or obj.get("ContentType") or mimetypes.guess_type(key)[0] or "application/octet-stream"
+            filename = os.path.basename(key)
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            if download:
+                self.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+            if "ContentLength" in obj:
+                self.send_header("Content-Length", str(obj["ContentLength"]))
+            self.end_headers()
+            body = obj["Body"]
+            while True:
+                chunk = body.read(8192)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+            return True
+        except Exception:
+            return False
+
+    def copy_prefix(self, old_prefix, new_prefix, delete_source=False):
+        token = ""
+        while True:
+            args = {
+                "Bucket": config["bucket"],
+                "Prefix": old_prefix
+            }
+            if token:
+                args["ContinuationToken"] = token
+            resp = s3.list_objects_v2(**args)
+            for obj in resp.get("Contents", []):
+                src_key = obj["Key"]
+                dst_key = new_prefix + src_key[len(old_prefix):]
+                s3.copy_object(
+                    Bucket=config["bucket"],
+                    CopySource={"Bucket": config["bucket"], "Key": src_key},
+                    Key=dst_key
+                )
+                if delete_source:
+                    s3.delete_object(Bucket=config["bucket"], Key=src_key)
+            if not resp.get("IsTruncated"):
+                break
+            token = resp.get("NextContinuationToken", "")
+
     # ===== GET =====
     def do_GET(self):
         global config, s3
+        if not self.is_authenticated():
+            return self.send_auth_required()
 
         # No bucket has been configured yet
         if not config.get("bucket"):
@@ -995,6 +1458,13 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         p = urllib.parse.urlparse(self.path)
         q = urllib.parse.parse_qs(p.query)
         prefix = q.get("prefix", [""])[0]
+        token = q.get("token", [""])[0]
+        query = q.get("q", [""])[0].strip()
+        max_keys_raw = q.get("max", ["500"])[0]
+        try:
+            max_keys = max(50, min(1000, int(max_keys_raw)))
+        except Exception:
+            max_keys = 500
         parts = [p for p in prefix.strip("/").split("/") if p] if prefix else []
         crumbs = [("Root", "")]
         current = ""
@@ -1015,32 +1485,146 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         if p.path == "/download":
             try:
                 key = q.get("file", [""])[0]
+                if self.stream_object(key, download=True):
+                    return
+                return self.respond("<html><body>Download failed</body></html>")
+            except Exception:
+                return self.respond("<html><body>Download failed</body></html>")
+
+        if p.path == "/download-server":
+            try:
+                key = q.get("file", [""])[0]
                 local = f"/tmp/{os.path.basename(key)}"
                 s3.download_file(config["bucket"], key, local)
                 return self.respond(f"<html><body>Downloaded to {local}</body></html>")
             except Exception:
                 return self.respond("<html><body>Download failed</body></html>")
 
+        if p.path == "/presign":
+            key = q.get("file", [""])[0]
+            back_prefix = q.get("prefix", [""])[0]
+            back_url = f"/?prefix={urllib.parse.quote(back_prefix)}" if back_prefix else "/"
+            url = self.presign_url(key, expires=900)
+            if not url:
+                return self.respond("<html><body>Failed to create link</body></html>")
+            safe_key = html.escape(key)
+            safe_url = html.escape(url)
+            return self.respond(f"""
+            <html><head>{self.fonts()}{self.css()}{self.scripts()}</head>
+            <body data-theme="dark">
+              <div class='bg-orb orb-1'></div>
+              <div class='bg-orb orb-2'></div>
+              <div class='bg-orb orb-3'></div>
+              <div class='page'>
+                <div class='preview-wrap'>
+                  <div class='preview-card'>
+                    <div class='preview-header'>
+                      <div>
+                        <div style='font-weight:600'>Share link</div>
+                        <div class='muted' style='font-size:12px'>{safe_key}</div>
+                      </div>
+                      <div style='display:flex;gap:8px;align-items:center;'>
+                        <a class='action-link' href='{back_url}'>Back</a>
+                        <a class='action-link' href='{safe_url}' target='_blank'>Open</a>
+                      </div>
+                    </div>
+                    <div class='preview-frame share-box mono'>{safe_url}</div>
+                    <div style='margin-top:12px'>
+                      <a class='action-link' href='#' data-copy='{safe_url}'>Copy URL</a>
+                    </div>
+                  </div>
+                </div>
+                <div id='toast' class='toast'></div>
+              </div>
+            </body></html>
+            """)
+
+        if p.path == "/preview":
+            key = q.get("file", [""])[0]
+            back_prefix = q.get("prefix", [""])[0]
+            back_url = f"/?prefix={urllib.parse.quote(back_prefix)}" if back_prefix else "/"
+            ext = os.path.splitext(key)[1].lower()
+            mime = mimetypes.guess_type(key)[0] or ""
+            url = self.presign_url(key, expires=900)
+            safe_key = html.escape(key)
+            if not url:
+                return self.respond("<html><body>Preview failed</body></html>")
+            embed = ""
+            if mime.startswith("image/"):
+                embed = f"<img src='{html.escape(url)}' style='max-width:100%;border-radius:12px;'>"
+            elif mime.startswith("video/"):
+                embed = f"<video controls style='width:100%;border-radius:12px;' src='{html.escape(url)}'></video>"
+            elif mime.startswith("audio/"):
+                embed = f"<audio controls style='width:100%' src='{html.escape(url)}'></audio>"
+            elif ext == ".pdf":
+                embed = f"<iframe src='{html.escape(url)}' style='width:100%;height:70vh;border:0;border-radius:12px;'></iframe>"
+            elif mime.startswith("text/") or ext in [".log", ".md", ".json", ".txt", ".csv"]:
+                try:
+                    obj = s3.get_object(Bucket=config["bucket"], Key=key)
+                    body = obj["Body"].read(200000).decode("utf-8", errors="replace")
+                    embed = f"<pre class='preview-frame mono'>{html.escape(body)}</pre>"
+                except Exception:
+                    embed = "<div class='preview-frame'>Unable to load text preview.</div>"
+            else:
+                embed = f"<div class='preview-frame'>Preview not supported. <a class='action-link' href='{html.escape(url)}' target='_blank'>Open file</a></div>"
+            return self.respond(f"""
+            <html><head>{self.fonts()}{self.css()}{self.scripts()}</head>
+            <body data-theme="dark">
+              <div class='bg-orb orb-1'></div>
+              <div class='bg-orb orb-2'></div>
+              <div class='bg-orb orb-3'></div>
+              <div class='page'>
+                <div class='preview-wrap'>
+                  <div class='preview-card'>
+                    <div class='preview-header'>
+                      <div>
+                        <div style='font-weight:600'>Preview</div>
+                        <div class='muted' style='font-size:12px'>{safe_key}</div>
+                      </div>
+                      <div style='display:flex;gap:8px;align-items:center;'>
+                        <a class='action-link' href='{back_url}'>Back</a>
+                        <a class='action-link' href='/download?file={urllib.parse.quote(key)}'>Download</a>
+                      </div>
+                    </div>
+                    {embed}
+                  </div>
+                </div>
+                <div id='toast' class='toast'></div>
+              </div>
+            </body></html>
+            """)
+
         if p.path == "/delete":
             try:
                 key = q.get("file", [""])[0]
                 s3.delete_object(Bucket=config["bucket"], Key=key)
-                return self.respond("<script>location='/'</script>")
+                back = f"/?prefix={urllib.parse.quote(prefix)}"
+                if query:
+                    back += f"&q={urllib.parse.quote(query)}"
+                return self.respond(f"<script>location='{back}'</script>")
             except Exception:
                 return self.respond("<html><body>Delete failed</body></html>")
 
         # ===== List objects with folder-style prefixes =====
         try:
-            resp = s3.list_objects_v2(
-                Bucket=config["bucket"],
-                Prefix=prefix if prefix else "",
-                Delimiter="/"
-            )
+            list_args = {
+                "Bucket": config["bucket"],
+                "Prefix": prefix if prefix else "",
+                "Delimiter": "/",
+                "MaxKeys": max_keys
+            }
+            if token:
+                list_args["ContinuationToken"] = token
+            resp = s3.list_objects_v2(**list_args)
         except Exception:
             resp = {}
 
         folders = [cp["Prefix"] for cp in resp.get("CommonPrefixes", [])]
         files = [o for o in resp.get("Contents", []) if o["Key"] != prefix]
+        if query:
+            qlower = query.lower()
+            folders = [p for p in folders if qlower in p.lower()]
+            files = [o for o in files if qlower in o["Key"].lower()]
         folder_count = len(folders)
         file_count = len(files)
         total_size = sum([o.get("Size", 0) for o in files])
@@ -1049,17 +1633,22 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             lm = o.get("LastModified")
             if lm and (latest_modified is None or lm > latest_modified):
                 latest_modified = lm
+        next_token = resp.get("NextContinuationToken", "")
 
         folder_rows = ""
         folder_cards = ""
         for pref in folders:
             name = pref[len(prefix):].strip("/")
+            safe_name = html.escape(name)
+            safe_key = html.escape(pref)
+            safe_uri = html.escape(f"s3://{config['bucket']}/{pref}")
             folder_rows += f"""
-            <tr data-kind="folder" data-name="{name}" data-size="0" data-date="" data-key="{pref}">
+            <tr data-kind="folder" data-name="{safe_name}" data-size="0" data-date="" data-key="{safe_key}">
+              <td class='col-select'><input class='checkbox row-select' type='checkbox' data-key="{safe_key}"></td>
               <td>
                 <span class='tag-folder'>
                   <span class='folder-icon'></span>
-                  <span>{name}</span>
+                  <span>{safe_name}</span>
                 </span>
               </td>
               <td class='meta'>Folder</td>
@@ -1067,16 +1656,17 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               <td class='meta'>--</td>
               <td class='actions'>
                 <a class='link' href='/?prefix={urllib.parse.quote(pref)}'>Open</a>
-                <a class='link danger' href='/delete?file={urllib.parse.quote(pref)}'>Delete</a>
-                <a class='action-link' href='#' data-copy='s3://{config["bucket"]}/{pref}'>Copy URI</a>
+                <a class='link' href='#' data-rename='{safe_key}' data-name='{safe_name}'>Rename</a>
+                <a class='link danger' href='/delete?file={urllib.parse.quote(pref)}&prefix={urllib.parse.quote(prefix)}' data-delete-url='/delete?file={urllib.parse.quote(pref)}&prefix={urllib.parse.quote(prefix)}'>Delete</a>
+                <a class='action-link' href='#' data-copy='{safe_uri}'>Copy URI</a>
               </td>
             </tr>
             """
             folder_cards += f"""
-            <div class='grid-item' data-kind="folder" data-name="{name}" data-size="0" data-date="" data-key="{pref}">
+            <div class='grid-item' data-kind="folder" data-name="{safe_name}" data-size="0" data-date="" data-key="{safe_key}">
               <div class='grid-head'>
                 <span class='folder-icon'></span>
-                <div class='grid-title'>{name}</div>
+                <div class='grid-title'>{safe_name}</div>
               </div>
               <div class='grid-meta'>
                 <span class='meta-pill'>Folder</span>
@@ -1084,9 +1674,11 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               </div>
               <div class='grid-actions'>
                 <a class='action-link' href='/?prefix={urllib.parse.quote(pref)}'>Open</a>
-                <a class='action-link' href='#' data-copy='s3://{config["bucket"]}/{pref}'>Copy URI</a>
-                <a class='action-link link danger' href='/delete?file={urllib.parse.quote(pref)}'>Delete</a>
+                <a class='action-link' href='#' data-rename='{safe_key}' data-name='{safe_name}'>Rename</a>
+                <a class='action-link' href='#' data-copy='{safe_uri}'>Copy URI</a>
+                <a class='action-link link danger' href='/delete?file={urllib.parse.quote(pref)}&prefix={urllib.parse.quote(prefix)}' data-delete-url='/delete?file={urllib.parse.quote(pref)}&prefix={urllib.parse.quote(prefix)}'>Delete</a>
               </div>
+              <label class='meta-pill'><input class='checkbox row-select' type='checkbox' data-key="{safe_key}"> Select</label>
             </div>
             """
 
@@ -1097,53 +1689,69 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             ext = os.path.splitext(name)[1].replace(".", "").upper() or "FILE"
             modified = o.get("LastModified", "")
             modified_iso = modified.isoformat() if hasattr(modified, "isoformat") else ""
+            safe_name = html.escape(name)
+            safe_key = html.escape(o["Key"])
+            safe_ext = html.escape(ext)
+            safe_uri = html.escape(f"s3://{config['bucket']}/{o['Key']}")
             file_rows += f"""
-            <tr data-kind="file" data-name="{name}" data-size="{o.get('Size', 0)}" data-date="{modified_iso}" data-key="{o["Key"]}">
-              <td><span class='file-icon'></span>{name}</td>
-              <td class='meta'>{ext}</td>
+            <tr data-kind="file" data-name="{safe_name}" data-size="{o.get('Size', 0)}" data-date="{modified_iso}" data-key="{safe_key}">
+              <td class='col-select'><input class='checkbox row-select' type='checkbox' data-key="{safe_key}"></td>
+              <td><span class='file-icon'></span>{safe_name}</td>
+              <td class='meta'>{safe_ext}</td>
               <td class='size'>{self.format_size(o.get("Size", 0))}</td>
               <td class='meta'>{self.format_date(modified)}</td>
               <td class='actions'>
                 <a class='link' href='/download?file={urllib.parse.quote(o["Key"])}'>Download</a>
-                <a class='link danger' href='/delete?file={urllib.parse.quote(o["Key"])}'>Delete</a>
-                <a class='action-link' href='#' data-copy='s3://{config["bucket"]}/{o["Key"]}'>Copy URI</a>
+                <a class='link' href='/preview?file={urllib.parse.quote(o["Key"])}&prefix={urllib.parse.quote(prefix)}' target='_blank'>Preview</a>
+                <a class='link' href='/presign?file={urllib.parse.quote(o["Key"])}&prefix={urllib.parse.quote(prefix)}' target='_blank'>Share</a>
+                <a class='link' href='#' data-rename='{safe_key}' data-name='{safe_name}'>Rename</a>
+                <a class='link danger' href='/delete?file={urllib.parse.quote(o["Key"])}&prefix={urllib.parse.quote(prefix)}' data-delete-url='/delete?file={urllib.parse.quote(o["Key"])}&prefix={urllib.parse.quote(prefix)}'>Delete</a>
+                <a class='action-link' href='#' data-copy='{safe_uri}'>Copy URI</a>
               </td>
             </tr>
             """
             file_cards += f"""
-            <div class='grid-item' data-kind="file" data-name="{name}" data-size="{o.get('Size', 0)}" data-date="{modified_iso}" data-key="{o["Key"]}">
+            <div class='grid-item' data-kind="file" data-name="{safe_name}" data-size="{o.get('Size', 0)}" data-date="{modified_iso}" data-key="{safe_key}">
               <div class='grid-head'>
                 <span class='file-icon'></span>
-                <div class='grid-title'>{name}</div>
+                <div class='grid-title'>{safe_name}</div>
               </div>
               <div class='grid-meta'>
-                <span class='meta-pill'>{ext}</span>
+                <span class='meta-pill'>{safe_ext}</span>
                 <span class='meta-pill'>{self.format_size(o.get("Size", 0))}</span>
                 <span class='meta-pill'>{self.format_date(modified)}</span>
               </div>
               <div class='grid-actions'>
                 <a class='action-link' href='/download?file={urllib.parse.quote(o["Key"])}'>Download</a>
-                <a class='action-link' href='#' data-copy='s3://{config["bucket"]}/{o["Key"]}'>Copy URI</a>
-                <a class='action-link link danger' href='/delete?file={urllib.parse.quote(o["Key"])}'>Delete</a>
+                <a class='action-link' href='/preview?file={urllib.parse.quote(o["Key"])}&prefix={urllib.parse.quote(prefix)}' target='_blank'>Preview</a>
+                <a class='action-link' href='/presign?file={urllib.parse.quote(o["Key"])}&prefix={urllib.parse.quote(prefix)}' target='_blank'>Share</a>
+                <a class='action-link' href='#' data-rename='{safe_key}' data-name='{safe_name}'>Rename</a>
+                <a class='action-link' href='#' data-copy='{safe_uri}'>Copy URI</a>
+                <a class='action-link link danger' href='/delete?file={urllib.parse.quote(o["Key"])}&prefix={urllib.parse.quote(prefix)}' data-delete-url='/delete?file={urllib.parse.quote(o["Key"])}&prefix={urllib.parse.quote(prefix)}'>Delete</a>
               </div>
+              <label class='meta-pill'><input class='checkbox row-select' type='checkbox' data-key="{safe_key}"> Select</label>
             </div>
             """
 
         rows = folder_rows + file_rows
         if not rows:
-            rows = "<tr><td colspan='5' class='empty'>No files in this folder</td></tr>"
+            rows = "<tr><td colspan='6' class='empty'>No files in this folder</td></tr>"
         grid_items = folder_cards + file_cards
         if not grid_items:
             grid_items = "<div class='empty'>No files in this folder</div>"
 
         prefix_label = "/" if not prefix else "/" + prefix.strip("/")
+        safe_prefix_label = html.escape(prefix_label)
+        safe_prefix = html.escape(prefix)
+        safe_bucket = html.escape(config["bucket"])
         crumbs_html = ""
         for i, (name, path) in enumerate(crumbs):
             cls = "crumb current" if i == len(crumbs) - 1 else "crumb"
             target = f"/?prefix={urllib.parse.quote(path)}" if path else "/"
-            crumbs_html += f"<a class='{cls}' href='{target}'>{name}</a>"
+            crumbs_html += f"<a class='{cls}' href='{target}'>{html.escape(name)}</a>"
         latest_label = self.format_date(latest_modified) if latest_modified else "--"
         region_label = (config.get("aws") or {}).get("region", "--")
+        safe_region = html.escape(region_label)
         stats_html = f"""
         <div class='stat-grid'>
           <div class='stat-card'>
@@ -1163,13 +1771,21 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           </div>
           <div class='stat-card'>
             <div class='label'>Region</div>
-            <div class='value'>{region_label}</div>
+            <div class='value'>{safe_region}</div>
             <div class='meta'>AWS region</div>
           </div>
         </div>
         """
+        query_param = f"&q={urllib.parse.quote(query)}" if query else ""
+        max_param = f"&max={max_keys}"
+        next_html = ""
+        if next_token:
+            next_url = f"/?prefix={urllib.parse.quote(prefix)}&token={urllib.parse.quote(next_token)}{max_param}{query_param}"
+            next_html = f"<div class='pager'><a class='action-link' href='{next_url}'>Next page</a></div>"
+        safe_query = html.escape(query)
+        safe_prefix_uri = html.escape(f"s3://{config['bucket']}/{prefix}")
 
-        html = f"""
+        page_html = f"""
         <html><head>{self.fonts()}{self.css()}{self.scripts()}</head>
         <body data-theme="dark">
           <div class='bg-orb orb-1'></div>
@@ -1177,15 +1793,15 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           <div class='bg-orb orb-3'></div>
           <div class='page'>
           <div class='top'>
-            <div class='brand'>
-              <div class='brand-mark'>S3</div>
-              <div>
-                S3 File Manager
-                <span class='chip'>{config['bucket']}</span>
+              <div class='brand'>
+                <div class='brand-mark'>S3</div>
+                <div>
+                  S3 File Manager
+                <span class='chip'>{safe_bucket}</span>
+                </div>
               </div>
-            </div>
             <div class='right-actions'>
-              <span class='badge-prefix'>{prefix_label}</span>
+              <span class='badge-prefix'>{safe_prefix_label}</span>
               <span class='chip'><span class='status-dot'></span>Connected</span>
               <span class='chip'>Last refresh <span id='lastRefresh'>--</span></span>
               <a href='/change-bucket'>Change Bucket</a>
@@ -1208,8 +1824,12 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               {stats_html}
 
               <div class='toolbar'>
-                <div class='left'>
-                  <input id='searchBox' class='input' placeholder='Search files or folders...'>
+                <div class='toolbar-group'>
+                  <form id='searchForm' method='get' action='/'>
+                    <input type='hidden' name='prefix' value='{safe_prefix}'>
+                    <input type='hidden' name='max' value='{max_keys}'>
+                    <input id='searchBox' name='q' class='input' placeholder='Search files or folders...' value='{safe_query}'>
+                  </form>
                   <select id='typeFilter' class='input' style='max-width:150px'>
                     <option value='all'>All</option>
                     <option value='file'>Files</option>
@@ -1225,16 +1845,37 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
                     <button id='viewGrid' class='btn ghost' type='button'>Grid</button>
                   </div>
                 </div>
-                <div class='right'>
-                  <a class='action-link' href='/?prefix={urllib.parse.quote(prefix)}'>Refresh</a>
-                  <a class='action-link' href='#' data-copy='s3://{config["bucket"]}/{prefix}'>Copy Prefix</a>
+                <div class='toolbar-group'>
+                  <a class='action-link' href='/?prefix={urllib.parse.quote(prefix)}{query_param}{max_param}'>Refresh</a>
+                  <a class='action-link' href='#' data-copy='{safe_prefix_uri}'>Copy Prefix</a>
                 </div>
               </div>
+              <div class='section-title'>Bulk Actions</div>
+              <div id='bulkBar' class='bulk-bar hidden'>
+                <span id='selectedCount' class='muted'>0 selected</span>
+                <input id='bulkTarget' class='input bulk-input' form='bulkForm' placeholder='Target prefix (e.g. archive/)'>
+                <button id='bulkMove' class='btn secondary' type='button'>Move</button>
+                <button id='bulkCopy' class='btn secondary' type='button'>Copy</button>
+                <button id='bulkDelete' class='btn warn' type='button'>Delete</button>
+              </div>
+
+              <div class='section-title'>Files</div>
+              <form id='bulkForm' method='post' action='/bulk-action'>
+                <input id='bulkAction' type='hidden' name='action' value=''>
+                <input type='hidden' name='prefix' value='{safe_prefix}'>
+                <input id='bulkTargetHidden' type='hidden' name='target' value=''>
+              </form>
+              <form id='renameForm' method='post' action='/rename'>
+                <input type='hidden' name='old' value=''>
+                <input type='hidden' name='new' value=''>
+                <input type='hidden' name='prefix' value='{safe_prefix}'>
+              </form>
 
               <div class='table-scroll'>
                 <table id='fileTable'>
                   <thead>
                     <tr>
+                      <th class='col-select'><input id='selectAll' class='checkbox' type='checkbox'></th>
                       <th>Name</th>
                       <th>Type</th>
                       <th>Size</th>
@@ -1250,17 +1891,19 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               <div id='gridItems' class='grid'>
                 {grid_items}
               </div>
+              {next_html}
 
               <div class='uploadbox'>
                 <form id='uploadForm' method='post' enctype='multipart/form-data'>
-                  <input type='hidden' name='prefix' value='{prefix}'>
+                  <input type='hidden' name='prefix' value='{safe_prefix}'>
                   <div id='dropzone' class='dropzone'>
                     <div>
                       <div style='font-weight:600'>Drag & drop files</div>
-                      <div class='muted' style='font-size:12px'>or pick a file to upload</div>
+                      <div class='muted' style='font-size:12px'>or pick files to upload</div>
+                      <div id='fileCount' class='muted' style='font-size:12px'>No files selected</div>
                     </div>
                     <div>
-                      <input id='fileInput' type='file' name='file'>
+                      <input id='fileInput' type='file' name='file' multiple>
                     </div>
                   </div>
                   <div class='upload-row'>
@@ -1278,7 +1921,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
                 </form>
 
                 <form class='folder-form' method='post' action='/create-folder'>
-                  <input type='hidden' name='prefix' value='{prefix}'>
+                  <input type='hidden' name='prefix' value='{safe_prefix}'>
                   <input class='input' style='max-width:220px' name='folder' placeholder='New folder name'>
                   <button class='btn secondary' type='submit'>Create Folder</button>
                 </form>
@@ -1286,14 +1929,27 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             </div>
           </div>
           <div id='toast' class='toast'></div>
+          <div id='confirmModal' class='modal-backdrop'>
+            <div class='modal'>
+              <h3 id='confirmTitle'>Confirm</h3>
+              <p id='confirmMessage'>Are you sure?</p>
+              <input id='confirmInput' class='is-hidden' type='text'>
+              <div class='modal-actions'>
+                <button id='confirmCancel' class='btn ghost' type='button'>Cancel</button>
+                <button id='confirmOk' class='btn warn' type='button'>Delete</button>
+              </div>
+            </div>
+          </div>
           </div>
         </body></html>
         """
-        self.respond(html)
+        self.respond(page_html)
 
     # ===== POST =====
     def do_POST(self):
         global config, s3
+        if not self.is_authenticated():
+            return self.send_auth_required()
 
         if self.path == "/save-bucket":
             length = int(self.headers.get("Content-Length", "0"))
@@ -1342,26 +1998,120 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
                     name += "/"
                 key = (prefix or "") + name
                 s3.put_object(Bucket=config["bucket"], Key=key, Body=b"")
-            return self.respond("<script>location='/'</script>")
+            back = f"/?prefix={urllib.parse.quote(prefix)}" if prefix else "/"
+            return self.respond(f"<script>location='{back}'</script>")
+
+        if self.path == "/bulk-action":
+            length = int(self.headers.get("Content-Length", "0"))
+            body = self.rfile.read(length).decode()
+            form = urllib.parse.parse_qs(body)
+            action = form.get("action", [""])[0]
+            keys = form.get("keys", [])
+            target = form.get("target", [""])[0].strip()
+            back_prefix = form.get("prefix", [""])[0]
+            back = f"/?prefix={urllib.parse.quote(back_prefix)}" if back_prefix else "/"
+            if action in ["move", "copy"] and target and not target.endswith("/"):
+                target += "/"
+            if action == "delete":
+                for key in keys:
+                    if key.endswith("/"):
+                        token = ""
+                        while True:
+                            args = {"Bucket": config["bucket"], "Prefix": key}
+                            if token:
+                                args["ContinuationToken"] = token
+                            resp = s3.list_objects_v2(**args)
+                            for obj in resp.get("Contents", []):
+                                s3.delete_object(Bucket=config["bucket"], Key=obj["Key"])
+                            if not resp.get("IsTruncated"):
+                                break
+                            token = resp.get("NextContinuationToken", "")
+                    else:
+                        s3.delete_object(Bucket=config["bucket"], Key=key)
+                return self.respond(f"<script>location='{back}'</script>")
+            if action in ["move", "copy"] and target:
+                for key in keys:
+                    if key.endswith("/"):
+                        name = key.rstrip("/").split("/")[-1] + "/"
+                        new_prefix = target + name
+                        self.copy_prefix(key, new_prefix, delete_source=(action == "move"))
+                    else:
+                        new_key = target + os.path.basename(key)
+                        s3.copy_object(
+                            Bucket=config["bucket"],
+                            CopySource={"Bucket": config["bucket"], "Key": key},
+                            Key=new_key
+                        )
+                        if action == "move":
+                            s3.delete_object(Bucket=config["bucket"], Key=key)
+                return self.respond(f"<script>location='{back}'</script>")
+            return self.respond("<html><body>Bulk action failed</body></html>")
+
+        if self.path == "/rename":
+            length = int(self.headers.get("Content-Length", "0"))
+            body = self.rfile.read(length).decode()
+            form = urllib.parse.parse_qs(body)
+            old_key = form.get("old", [""])[0]
+            new_name = form.get("new", [""])[0].strip()
+            back_prefix = form.get("prefix", [""])[0]
+            back = f"/?prefix={urllib.parse.quote(back_prefix)}" if back_prefix else "/"
+            if not old_key or not new_name:
+                return self.respond(f"<script>location='{back}'</script>")
+            is_folder = old_key.endswith("/")
+            if "/" in new_name:
+                new_key = new_name
+            else:
+                parent = old_key.rstrip("/").rsplit("/", 1)
+                if len(parent) == 2:
+                    new_key = parent[0] + "/" + new_name
+                else:
+                    new_key = new_name
+            if is_folder and not new_key.endswith("/"):
+                new_key += "/"
+            if is_folder:
+                self.copy_prefix(old_key, new_key, delete_source=True)
+            else:
+                s3.copy_object(
+                    Bucket=config["bucket"],
+                    CopySource={"Bucket": config["bucket"], "Key": old_key},
+                    Key=new_key
+                )
+                s3.delete_object(Bucket=config["bucket"], Key=old_key)
+            return self.respond(f"<script>location='{back}'</script>")
 
         # Handle upload (including prefix when provided)
         try:
             form = cgi.FieldStorage(
                 fp=self.rfile,
                 headers=self.headers,
-                environ={"REQUEST_METHOD": "POST"}
+                environ={
+                    "REQUEST_METHOD": "POST",
+                    "CONTENT_TYPE": self.headers.get("Content-Type", ""),
+                    "CONTENT_LENGTH": self.headers.get("Content-Length", "0")
+                }
             )
-            file_item = form["file"]
+            file_item = form["file"] if "file" in form else None
             prefix = ""
             if "prefix" in form and form["prefix"].value:
                 prefix = form["prefix"].value
             if prefix and not prefix.endswith("/"):
                 prefix = prefix + "/"
-            key = (prefix or "") + file_item.filename
-            s3.upload_fileobj(file_item.file, config["bucket"], key)
-            return self.respond("<script>location='/'</script>")
+            if file_item is None:
+                return self.respond_text(400, "Upload failed: no file")
+            items = file_item if isinstance(file_item, list) else [file_item]
+            for item in items:
+                if not getattr(item, "filename", ""):
+                    continue
+                filename = os.path.basename(item.filename)
+                if not filename:
+                    continue
+                key = (prefix or "") + filename
+                s3.upload_fileobj(item.file, config["bucket"], key)
+            back = f"/?prefix={urllib.parse.quote(prefix)}" if prefix else "/"
+            return self.respond(f"<script>location='{back}'</script>")
         except Exception as e:
-            return self.respond(f"<html><body>Upload failed: {e}</body></html>")
+            sys.stderr.write(f"Upload failed: {e}\n")
+            return self.respond_text(500, f"Upload failed: {e}")
 
 
 # ---------- HTTPS SERVER ----------
