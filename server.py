@@ -331,6 +331,9 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           color: var(--text);
           font-size: 14px;
         }
+        .input::placeholder {
+          color: var(--text-muted);
+        }
         .input:focus {
           outline:none;
           border-color: var(--accent-2);
@@ -499,11 +502,28 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           flex-wrap:wrap;
         }
         select.input {
-          background: transparent;
+          background: var(--bg-elevated);
+          color: var(--text);
+        }
+        select.input option {
+          background: var(--bg-elevated);
+          color: var(--text);
+        }
+        body[data-theme="light"] select.input option {
+          background: #ffffff;
+          color: #0f172a;
         }
         .view-toggle {
           display:flex;
           gap:6px;
+        }
+        .auth-form {
+          display:flex;
+          flex-direction:column;
+          gap:12px;
+        }
+        .auth-form .btn {
+          align-self:center;
         }
         .progress-wrap {
           margin-top: 10px;
@@ -700,8 +720,8 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               <h2>Connect a Bucket</h2>
               <div class='subtitle'>Enter the S3 bucket name to manage files.</div>
               {error_html}
-              <form method='post' action='/save-bucket'>
-                <input class='input' name='bucket' placeholder='bucket-name'><br><br>
+              <form class='auth-form' method='post' action='/save-bucket'>
+                <input class='input' name='bucket' placeholder='bucket-name'>
                 <button class='btn'>Continue</button>
               </form>
             </div>
@@ -724,10 +744,10 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               <h2>AWS Credentials</h2>
               <div class='subtitle'>Access key is stored locally on this server only.</div>
               {error_html}
-              <form method='post' action='/save-creds'>
-                <input class='input' name='access_key' placeholder='Access Key'><br><br>
-                <input class='input' name='secret_key' placeholder='Secret Key'><br><br>
-                <input class='input' name='region' value='us-east-1'><br><br>
+              <form class='auth-form' method='post' action='/save-creds'>
+                <input class='input' name='access_key' placeholder='Access Key'>
+                <input class='input' name='secret_key' placeholder='Secret Key'>
+                <input class='input' name='region' value='us-east-1'>
                 <button class='btn'>Save</button>
               </form>
             </div>
@@ -1026,9 +1046,9 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         total_size = sum([o.get("Size", 0) for o in files])
         latest_modified = None
         for o in files:
-          lm = o.get("LastModified")
-          if lm and (latest_modified is None or lm > latest_modified):
-            latest_modified = lm
+            lm = o.get("LastModified")
+            if lm and (latest_modified is None or lm > latest_modified):
+                latest_modified = lm
 
         folder_rows = ""
         folder_cards = ""

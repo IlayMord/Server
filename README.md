@@ -1,41 +1,42 @@
-# S3 File Manager (HTTPS)
+# S3 File Manager
 
-A simple Python web server for managing files in an Amazon S3 bucket via a browser.  
-The interface supports uploading, downloading, and deleting files over a secure HTTPS connection.
+A lightweight Python web UI for browsing and managing files in an Amazon S3 bucket.
+The server runs locally and stores credentials in a local config file.
 
----
+## Features
+- Web UI for listing, uploading, downloading, deleting, and creating folders
+- Prefix navigation with breadcrumbs
+- Search, sort, and grid/list view toggle
+- Copy S3 URIs to clipboard
+- Upload progress bar and drag-and-drop support
+- Theme toggle (light/dark)
 
-## ✨ Features
-- Automatically installs:
-  - `python3-pip`
-  - Project dependencies from `requirements.txt`
-  - `curl` and `unzip`
-  - AWS CLI v2 (only if missing)
-- Ensures SSL certificate files (`cert.pem`, `key.pem`) exist — generates them if needed
-- Runs an HTTPS server on port **443**
-- Lists files from the configured S3 bucket
-- Supports:
-  - Uploading files to S3
-  - Downloading files to `/tmp`
-  - Deleting files from S3
+## Requirements
+- Python 3.8+
+- AWS credentials with access to the target S3 bucket
+- Existing S3 bucket
 
----
-
-## 🔧 Requirements
-- Ubuntu / Linux environment  
-- Python 3  
-- `openssl`  
-- Valid AWS credentials  
-- Existing S3 bucket  
-
-> Default bucket: `ilay-bucket1` (can be changed inside the code)
-
----
-
-## ⚙️ Setup (Auto-Bootstrap)
-
-Run the setup script — it will prepare everything automatically:
-
+## Install
 ```bash
-chmod +x starter.sh
-./starter.sh
+python3 -m pip install -r requirements.txt
+```
+
+## Run
+```bash
+python3 server.py
+```
+
+Then open `http://localhost:80` in your browser (or the port you set).
+
+## Configuration
+The app stores configuration in:
+- `~/.s3-file-manager/app_config.json` (preferred)
+- `/tmp/s3-file-manager/app_config.json` (fallback)
+
+You can override paths/ports with environment variables:
+- `S3MGR_PORT` (default: `80`)
+- `S3MGR_CONFIG_DIR`
+
+## Notes
+- Downloads are saved to `/tmp/<filename>` on the server host.
+- Credentials are stored locally on the server and are not encrypted.
