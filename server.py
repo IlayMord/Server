@@ -2,6 +2,7 @@
 
 import http.server, socketserver, urllib.parse, cgi
 import os
+import sys
 import boto3, ssl, json
 
 def resolve_port():
@@ -114,51 +115,84 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         return """
         <style>
         :root {
-          --bg: #0b1020;
-          --bg-card: #0f162c;
-          --bg-elevated: #121a36;
+          --bg: #0b1117;
+          --bg-card: rgba(14, 20, 33, 0.92);
+          --bg-elevated: rgba(18, 26, 44, 0.9);
           --border-subtle: rgba(148,163,184,0.2);
-          --accent: #22d3ee;
+          --accent: #2dd4bf;
           --accent-2: #38bdf8;
           --accent-strong: #0ea5e9;
-          --danger: #ef4444;
-          --danger-soft: rgba(239,68,68,0.15);
+          --danger: #f97316;
+          --danger-soft: rgba(249,115,22,0.2);
           --text: #e2e8f0;
           --text-muted: #94a3b8;
           --text-soft: #cbd5f5;
           --success: #22c55e;
+          --shadow: 0 30px 70px rgba(2, 6, 23, 0.45);
+          --glow: 0 0 40px rgba(45, 212, 191, 0.2);
         }
         body[data-theme="light"] {
-          --bg: #f3f6fb;
-          --bg-card: #ffffff;
+          --bg: #f6f3ef;
+          --bg-card: rgba(255, 255, 255, 0.98);
           --bg-elevated: #ffffff;
-          --border-subtle: rgba(15,23,42,0.15);
-          --accent: #0284c7;
-          --accent-2: #0ea5e9;
-          --accent-strong: #0ea5e9;
-          --danger: #dc2626;
-          --danger-soft: rgba(220,38,38,0.12);
+          --border-subtle: rgba(15,23,42,0.12);
+          --accent: #0ea5e9;
+          --accent-2: #14b8a6;
+          --accent-strong: #0284c7;
+          --danger: #ea580c;
+          --danger-soft: rgba(234,88,12,0.12);
           --text: #0f172a;
           --text-muted: #64748b;
           --text-soft: #334155;
           --success: #16a34a;
+          --shadow: 0 20px 50px rgba(15, 23, 42, 0.18);
+          --glow: 0 0 40px rgba(14, 165, 233, 0.15);
         }
         body {
           margin:0;
           background:
-            radial-gradient(900px 500px at 10% -20%, rgba(34,211,238,0.15), transparent),
-            radial-gradient(700px 600px at 90% -10%, rgba(56,189,248,0.12), transparent),
-            linear-gradient(180deg, rgba(15,23,42,0.6), rgba(15,23,42,0)) 0 0 / 100% 40% no-repeat,
+            radial-gradient(800px 500px at 12% -20%, rgba(45,212,191,0.2), transparent),
+            radial-gradient(700px 600px at 88% -10%, rgba(14,165,233,0.18), transparent),
+            linear-gradient(180deg, rgba(15,23,42,0.7), rgba(15,23,42,0)) 0 0 / 100% 45% no-repeat,
             var(--bg);
           color: var(--text);
-          font-family: "Space Grotesk", "IBM Plex Sans", "Segoe UI", sans-serif;
+          font-family: "Bricolage Grotesque", "Space Grotesk", "IBM Plex Sans", sans-serif;
           min-height: 100vh;
+        }
+        .bg-orb {
+          position: fixed;
+          width: 420px;
+          height: 420px;
+          border-radius: 50%;
+          filter: blur(60px);
+          opacity: 0.6;
+          z-index: 0;
+          pointer-events: none;
+        }
+        .orb-1 {
+          top: -160px;
+          left: -100px;
+          background: radial-gradient(circle, rgba(45,212,191,0.5), transparent 70%);
+        }
+        .orb-2 {
+          right: -120px;
+          top: 40px;
+          background: radial-gradient(circle, rgba(14,165,233,0.5), transparent 70%);
+        }
+        .orb-3 {
+          bottom: -180px;
+          left: 15%;
+          background: radial-gradient(circle, rgba(249,115,22,0.4), transparent 70%);
+        }
+        .page {
+          position: relative;
+          z-index: 1;
         }
         .top {
           position: sticky;
           top: 0;
           z-index: 10;
-          background: rgba(15,23,42,0.85);
+          background: rgba(10,15,25,0.7);
           backdrop-filter: blur(12px);
           border-bottom: 1px solid var(--border-subtle);
           padding: 16px 26px;
@@ -193,7 +227,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           padding:4px 8px;
           border-radius:999px;
           border:1px solid var(--border-subtle);
-          background: rgba(15,23,42,0.55);
+          background: rgba(15,23,42,0.45);
         }
         body[data-theme="light"] .chip {
           background: #eef2ff;
@@ -224,7 +258,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           border-radius: 18px;
           border: 1px solid var(--border-subtle);
           padding: 24px 24px 26px;
-          box-shadow: 0 30px 60px rgba(2,6,23,0.25);
+          box-shadow: var(--shadow);
           animation: floatUp .35s ease both;
           width: 100%;
           max-width: 1100px;
@@ -238,6 +272,35 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           font-size: 13px;
           color: var(--text-muted);
           margin-bottom: 18px;
+        }
+        .stat-grid {
+          display:grid;
+          grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+          gap:12px;
+          margin: 12px 0 18px;
+        }
+        .stat-card {
+          padding: 14px 16px;
+          border-radius: 16px;
+          background: var(--bg-elevated);
+          border: 1px solid var(--border-subtle);
+          box-shadow: var(--glow);
+        }
+        .stat-card .label {
+          font-size: 11px;
+          text-transform: uppercase;
+          letter-spacing: 0.08em;
+          color: var(--text-muted);
+        }
+        .stat-card .value {
+          font-size: 18px;
+          font-weight: 600;
+          margin-top: 6px;
+        }
+        .stat-card .meta {
+          font-size: 12px;
+          color: var(--text-muted);
+          margin-top: 4px;
         }
         .pill-row {
           display:flex;
@@ -296,6 +359,11 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           border:1px solid var(--border-subtle);
           color: var(--text);
         }
+        .btn.ghost.active {
+          border-color: var(--accent-2);
+          box-shadow: 0 0 0 2px rgba(56,189,248,0.15);
+          color: var(--text);
+        }
         table {
           width:100%;
           border-collapse: collapse;
@@ -342,6 +410,15 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           width:16px;height:12px;
           border-radius:3px;
           background: linear-gradient(135deg,#fbbf24,#f97316);
+        }
+        .file-icon {
+          width: 18px;
+          height: 18px;
+          border-radius: 6px;
+          background: linear-gradient(135deg, rgba(14,165,233,0.9), rgba(45,212,191,0.9));
+          display: inline-block;
+          margin-right: 8px;
+          vertical-align: middle;
         }
         body[data-theme="dark"] .folder-icon {
           background: linear-gradient(135deg,#facc15,#f97316);
@@ -424,6 +501,10 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         select.input {
           background: transparent;
         }
+        .view-toggle {
+          display:flex;
+          gap:6px;
+        }
         .progress-wrap {
           margin-top: 10px;
         }
@@ -473,6 +554,104 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         .table-scroll {
           overflow-x: auto;
         }
+        .dropzone {
+          display:flex;
+          align-items:center;
+          justify-content:space-between;
+          gap:16px;
+          padding: 12px 14px;
+          border-radius: 12px;
+          border: 1px dashed var(--border-subtle);
+          background: rgba(15,23,42,0.3);
+          transition: border-color .2s ease, background .2s ease, transform .2s ease;
+        }
+        body[data-theme="light"] .dropzone {
+          background: #f8fafc;
+        }
+        .dropzone.active {
+          border-color: var(--accent-2);
+          background: rgba(45,212,191,0.08);
+          transform: translateY(-1px);
+        }
+        .dropzone input[type="file"] {
+          color: var(--text);
+        }
+        .grid {
+          display:none;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap:16px;
+          margin-top: 18px;
+        }
+        .grid-item {
+          border-radius: 16px;
+          padding: 14px 16px;
+          border: 1px solid var(--border-subtle);
+          background: var(--bg-elevated);
+          box-shadow: 0 12px 24px rgba(2,6,23,0.2);
+          display:flex;
+          flex-direction:column;
+          gap:10px;
+        }
+        .grid-head {
+          display:flex;
+          align-items:center;
+          gap:10px;
+        }
+        .grid-title {
+          font-weight:600;
+          font-size:14px;
+          word-break: break-word;
+        }
+        .grid-meta {
+          display:flex;
+          flex-wrap:wrap;
+          gap:8px;
+          font-size:12px;
+          color: var(--text-muted);
+        }
+        .meta-pill {
+          padding: 4px 8px;
+          border-radius: 999px;
+          border: 1px solid var(--border-subtle);
+          color: var(--text-soft);
+          font-size: 11px;
+        }
+        .grid-actions {
+          margin-top: auto;
+          display:flex;
+          flex-wrap:wrap;
+          gap:6px;
+        }
+        .toast {
+          position: fixed;
+          bottom: 22px;
+          right: 22px;
+          background: rgba(15,23,42,0.9);
+          color: var(--text);
+          padding: 10px 14px;
+          border-radius: 12px;
+          border: 1px solid var(--border-subtle);
+          font-size: 12px;
+          box-shadow: var(--shadow);
+          opacity: 0;
+          transform: translateY(8px);
+          transition: opacity .2s ease, transform .2s ease;
+          pointer-events: none;
+          z-index: 20;
+        }
+        .toast.show {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        .is-hidden {
+          display:none !important;
+        }
+        body[data-view="grid"] .table-scroll {
+          display:none;
+        }
+        body[data-view="grid"] .grid {
+          display:grid;
+        }
         @keyframes floatUp {
           from { opacity: 0; transform: translateY(10px); }
           to { opacity: 1; transform: translateY(0); }
@@ -493,15 +672,29 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           th:nth-child(4), td:nth-child(4) {
             display:none;
           }
+          .grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          }
         }
         </style>
+        """
+
+    def fonts(self):
+        return """
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
         """
 
     def render_bucket_form(self, error=""):
         error_html = f"<div class='subtitle' style='color: var(--danger);'>{error}</div>" if error else ""
         return f"""
-        <html><head>{self.css()}{self.scripts()}</head>
+        <html><head>{self.fonts()}{self.css()}{self.scripts()}</head>
         <body data-theme="dark">
+          <div class='bg-orb orb-1'></div>
+          <div class='bg-orb orb-2'></div>
+          <div class='bg-orb orb-3'></div>
+          <div class='page'>
           <div class='wrap'>
             <div class='card' style='max-width:480px;margin-top:40px'>
               <h2>Connect a Bucket</h2>
@@ -513,14 +706,19 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               </form>
             </div>
           </div>
+          </div>
         </body></html>
         """
 
     def render_creds_form(self, error=""):
         error_html = f"<div class='subtitle' style='color: var(--danger);'>{error}</div>" if error else ""
         return f"""
-        <html><head>{self.css()}{self.scripts()}</head>
+        <html><head>{self.fonts()}{self.css()}{self.scripts()}</head>
         <body data-theme="dark">
+          <div class='bg-orb orb-1'></div>
+          <div class='bg-orb orb-2'></div>
+          <div class='bg-orb orb-3'></div>
+          <div class='page'>
           <div class='wrap'>
             <div class='card' style='max-width:480px;margin-top:40px'>
               <h2>AWS Credentials</h2>
@@ -534,6 +732,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               </form>
             </div>
           </div>
+          </div>
         </body></html>
         """
 
@@ -545,27 +744,51 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           var saved = localStorage.getItem('s3mgr-theme') || 'dark';
           document.body.setAttribute('data-theme', saved);
         }
+        function applyView() {
+          var saved = localStorage.getItem('s3mgr-view') || 'table';
+          document.body.setAttribute('data-view', saved);
+          var tableBtn = document.getElementById('viewTable');
+          var gridBtn = document.getElementById('viewGrid');
+          if (tableBtn && gridBtn) {
+            tableBtn.classList.toggle('active', saved === 'table');
+            gridBtn.classList.toggle('active', saved === 'grid');
+          }
+        }
         function toggleTheme() {
           var cur = document.body.getAttribute('data-theme') || 'dark';
           var next = cur === 'dark' ? 'light' : 'dark';
           document.body.setAttribute('data-theme', next);
           localStorage.setItem('s3mgr-theme', next);
         }
+        function toggleView(view) {
+          document.body.setAttribute('data-view', view);
+          localStorage.setItem('s3mgr-view', view);
+          applyView();
+        }
+        function applyFilters() {
+          var box = document.getElementById('searchBox');
+          var filter = document.getElementById('typeFilter');
+          var q = box ? box.value.toLowerCase() : '';
+          var kind = filter ? filter.value : 'all';
+          var rows = document.querySelectorAll('#fileTable tbody tr[data-kind]');
+          var cards = document.querySelectorAll('.grid-item[data-kind]');
+          function match(el) {
+            var name = (el.getAttribute('data-name') || '').toLowerCase();
+            var kindMatches = kind === 'all' || el.getAttribute('data-kind') === kind;
+            var textMatches = !q || name.indexOf(q) !== -1;
+            el.classList.toggle('is-hidden', !(kindMatches && textMatches));
+          }
+          rows.forEach(match);
+          cards.forEach(match);
+        }
         function initSearch() {
           var box = document.getElementById('searchBox');
+          var filter = document.getElementById('typeFilter');
           if (!box) return;
-          box.addEventListener('input', function() {
-            var q = box.value.toLowerCase();
-            var rows = document.querySelectorAll('#fileTable tbody tr[data-kind]');
-            rows.forEach(function(r) {
-              if (!q) {
-                r.style.display = '';
-                return;
-              }
-              var text = r.getAttribute('data-name') || '';
-              r.style.display = text.toLowerCase().indexOf(q) !== -1 ? '' : 'none';
-            });
-          });
+          box.addEventListener('input', applyFilters);
+          if (filter) {
+            filter.addEventListener('change', applyFilters);
+          }
         }
         function initSort() {
           var select = document.getElementById('sortSelect');
@@ -573,8 +796,10 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
           select.addEventListener('change', function() {
             var mode = select.value;
             var tbody = document.querySelector('#fileTable tbody');
+            var grid = document.getElementById('gridItems');
             if (!tbody) return;
             var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr[data-kind]'));
+            var cards = Array.prototype.slice.call(document.querySelectorAll('.grid-item[data-kind]'));
             rows.sort(function(a, b) {
               if (mode === 'name') {
                 return (a.dataset.name || '').localeCompare(b.dataset.name || '');
@@ -583,12 +808,34 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
                 return (parseInt(b.dataset.size || '0', 10) - parseInt(a.dataset.size || '0', 10));
               }
               if (mode === 'modified') {
-                return (a.dataset.date || '').localeCompare(b.dataset.date || '');
+                return (b.dataset.date || '').localeCompare(a.dataset.date || '');
               }
               return 0;
             });
             rows.forEach(function(r) { tbody.appendChild(r); });
+            if (grid) {
+              cards.sort(function(a, b) {
+                if (mode === 'name') {
+                  return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+                }
+                if (mode === 'size') {
+                  return (parseInt(b.dataset.size || '0', 10) - parseInt(a.dataset.size || '0', 10));
+                }
+                if (mode === 'modified') {
+                  return (b.dataset.date || '').localeCompare(a.dataset.date || '');
+                }
+                return 0;
+              });
+              cards.forEach(function(c) { grid.appendChild(c); });
+            }
           });
+        }
+        function showToast(message) {
+          var toast = document.getElementById('toast');
+          if (!toast) return;
+          toast.textContent = message;
+          toast.classList.add('show');
+          setTimeout(function() { toast.classList.remove('show'); }, 1400);
         }
         function initCopyButtons() {
           var buttons = document.querySelectorAll('[data-copy]');
@@ -599,8 +846,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               if (!val) return;
               if (navigator.clipboard && navigator.clipboard.writeText) {
                 navigator.clipboard.writeText(val);
-                btn.textContent = 'Copied';
-                setTimeout(function(){ btn.textContent = 'Copy URI'; }, 1200);
+                showToast('Copied to clipboard');
               } else {
                 window.prompt('Copy URI', val);
               }
@@ -674,6 +920,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         }
         document.addEventListener('DOMContentLoaded', function() {
           applyTheme();
+          applyView();
           var themeBtn = document.getElementById('themeToggle');
           if (themeBtn) {
             themeBtn.addEventListener('click', function(e) {
@@ -681,7 +928,24 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               toggleTheme();
             });
           }
+          var tableBtn = document.getElementById('viewTable');
+          var gridBtn = document.getElementById('viewGrid');
+          if (tableBtn && gridBtn) {
+            tableBtn.addEventListener('click', function(e) {
+              e.preventDefault();
+              toggleView('table');
+            });
+            gridBtn.addEventListener('click', function(e) {
+              e.preventDefault();
+              toggleView('grid');
+            });
+          }
+          var refresh = document.getElementById('lastRefresh');
+          if (refresh) {
+            refresh.textContent = new Date().toLocaleTimeString();
+          }
           initSearch();
+          applyFilters();
           initUpload();
           initSort();
           initCopyButtons();
@@ -760,12 +1024,18 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
         folder_count = len(folders)
         file_count = len(files)
         total_size = sum([o.get("Size", 0) for o in files])
+        latest_modified = None
+        for o in files:
+          lm = o.get("LastModified")
+          if lm and (latest_modified is None or lm > latest_modified):
+            latest_modified = lm
 
         folder_rows = ""
+        folder_cards = ""
         for pref in folders:
             name = pref[len(prefix):].strip("/")
             folder_rows += f"""
-            <tr data-kind="folder" data-name="{name}" data-size="0" data-date="">
+            <tr data-kind="folder" data-name="{name}" data-size="0" data-date="" data-key="{pref}">
               <td>
                 <span class='tag-folder'>
                   <span class='folder-icon'></span>
@@ -782,15 +1052,33 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               </td>
             </tr>
             """
+            folder_cards += f"""
+            <div class='grid-item' data-kind="folder" data-name="{name}" data-size="0" data-date="" data-key="{pref}">
+              <div class='grid-head'>
+                <span class='folder-icon'></span>
+                <div class='grid-title'>{name}</div>
+              </div>
+              <div class='grid-meta'>
+                <span class='meta-pill'>Folder</span>
+                <span class='meta-pill'>--</span>
+              </div>
+              <div class='grid-actions'>
+                <a class='action-link' href='/?prefix={urllib.parse.quote(pref)}'>Open</a>
+                <a class='action-link' href='#' data-copy='s3://{config["bucket"]}/{pref}'>Copy URI</a>
+                <a class='action-link link danger' href='/delete?file={urllib.parse.quote(pref)}'>Delete</a>
+              </div>
+            </div>
+            """
 
         file_rows = ""
+        file_cards = ""
         for o in files:
             name = o["Key"][len(prefix):] if prefix and o["Key"].startswith(prefix) else o["Key"]
             ext = os.path.splitext(name)[1].replace(".", "").upper() or "FILE"
             modified = o.get("LastModified", "")
             modified_iso = modified.isoformat() if hasattr(modified, "isoformat") else ""
             file_rows += f"""
-            <tr data-kind="file" data-name="{name}" data-size="{o.get('Size', 0)}" data-date="{modified_iso}">
+            <tr data-kind="file" data-name="{name}" data-size="{o.get('Size', 0)}" data-date="{modified_iso}" data-key="{o["Key"]}">
               <td><span class='file-icon'></span>{name}</td>
               <td class='meta'>{ext}</td>
               <td class='size'>{self.format_size(o.get("Size", 0))}</td>
@@ -802,10 +1090,31 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               </td>
             </tr>
             """
+            file_cards += f"""
+            <div class='grid-item' data-kind="file" data-name="{name}" data-size="{o.get('Size', 0)}" data-date="{modified_iso}" data-key="{o["Key"]}">
+              <div class='grid-head'>
+                <span class='file-icon'></span>
+                <div class='grid-title'>{name}</div>
+              </div>
+              <div class='grid-meta'>
+                <span class='meta-pill'>{ext}</span>
+                <span class='meta-pill'>{self.format_size(o.get("Size", 0))}</span>
+                <span class='meta-pill'>{self.format_date(modified)}</span>
+              </div>
+              <div class='grid-actions'>
+                <a class='action-link' href='/download?file={urllib.parse.quote(o["Key"])}'>Download</a>
+                <a class='action-link' href='#' data-copy='s3://{config["bucket"]}/{o["Key"]}'>Copy URI</a>
+                <a class='action-link link danger' href='/delete?file={urllib.parse.quote(o["Key"])}'>Delete</a>
+              </div>
+            </div>
+            """
 
         rows = folder_rows + file_rows
         if not rows:
             rows = "<tr><td colspan='5' class='empty'>No files in this folder</td></tr>"
+        grid_items = folder_cards + file_cards
+        if not grid_items:
+            grid_items = "<div class='empty'>No files in this folder</div>"
 
         prefix_label = "/" if not prefix else "/" + prefix.strip("/")
         crumbs_html = ""
@@ -813,17 +1122,40 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             cls = "crumb current" if i == len(crumbs) - 1 else "crumb"
             target = f"/?prefix={urllib.parse.quote(path)}" if path else "/"
             crumbs_html += f"<a class='{cls}' href='{target}'>{name}</a>"
+        latest_label = self.format_date(latest_modified) if latest_modified else "--"
+        region_label = (config.get("aws") or {}).get("region", "--")
         stats_html = f"""
-        <div class='pill-row'>
-          <span class='pill'><span class='status-dot'></span>{file_count} files</span>
-          <span class='pill'>{folder_count} folders</span>
-          <span class='pill'>Total size {self.format_size(total_size)}</span>
+        <div class='stat-grid'>
+          <div class='stat-card'>
+            <div class='label'>Objects</div>
+            <div class='value'>{file_count + folder_count}</div>
+            <div class='meta'>{file_count} files, {folder_count} folders</div>
+          </div>
+          <div class='stat-card'>
+            <div class='label'>Total Size</div>
+            <div class='value'>{self.format_size(total_size)}</div>
+            <div class='meta'>Current prefix size</div>
+          </div>
+          <div class='stat-card'>
+            <div class='label'>Latest Modified</div>
+            <div class='value'>{latest_label}</div>
+            <div class='meta'>Most recent file</div>
+          </div>
+          <div class='stat-card'>
+            <div class='label'>Region</div>
+            <div class='value'>{region_label}</div>
+            <div class='meta'>AWS region</div>
+          </div>
         </div>
         """
 
         html = f"""
-        <html><head>{self.css()}{self.scripts()}</head>
+        <html><head>{self.fonts()}{self.css()}{self.scripts()}</head>
         <body data-theme="dark">
+          <div class='bg-orb orb-1'></div>
+          <div class='bg-orb orb-2'></div>
+          <div class='bg-orb orb-3'></div>
+          <div class='page'>
           <div class='top'>
             <div class='brand'>
               <div class='brand-mark'>S3</div>
@@ -835,6 +1167,7 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             <div class='right-actions'>
               <span class='badge-prefix'>{prefix_label}</span>
               <span class='chip'><span class='status-dot'></span>Connected</span>
+              <span class='chip'>Last refresh <span id='lastRefresh'>--</span></span>
               <a href='/change-bucket'>Change Bucket</a>
               <a class='danger' href='/change-creds'>Change Credentials</a>
               <button id='themeToggle'>Light/Dark</button>
@@ -857,11 +1190,20 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
               <div class='toolbar'>
                 <div class='left'>
                   <input id='searchBox' class='input' placeholder='Search files or folders...'>
+                  <select id='typeFilter' class='input' style='max-width:150px'>
+                    <option value='all'>All</option>
+                    <option value='file'>Files</option>
+                    <option value='folder'>Folders</option>
+                  </select>
                   <select id='sortSelect' class='input' style='max-width:180px'>
                     <option value='name'>Sort: Name</option>
                     <option value='size'>Sort: Size</option>
                     <option value='modified'>Sort: Modified</option>
                   </select>
+                  <div class='view-toggle'>
+                    <button id='viewTable' class='btn ghost' type='button'>List</button>
+                    <button id='viewGrid' class='btn ghost' type='button'>Grid</button>
+                  </div>
                 </div>
                 <div class='right'>
                   <a class='action-link' href='/?prefix={urllib.parse.quote(prefix)}'>Refresh</a>
@@ -884,6 +1226,9 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
                     {rows}
                   </tbody>
                 </table>
+              </div>
+              <div id='gridItems' class='grid'>
+                {grid_items}
               </div>
 
               <div class='uploadbox'>
@@ -919,6 +1264,8 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
                 </form>
               </div>
             </div>
+          </div>
+          <div id='toast' class='toast'></div>
           </div>
         </body></html>
         """
@@ -1008,4 +1355,3 @@ try:
 except OSError as e:
     print(f"Server failed to start on port {PORT}: {e}")
     sys.exit(1)
-
