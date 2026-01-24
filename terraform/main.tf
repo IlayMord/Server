@@ -80,7 +80,7 @@ resource "aws_security_group" "web_sg" {
 # EC2 Instance
 resource "aws_instance" "s3fm" {
   ami           = "ami-0e001c9271cf7f3b9" 
-  instance_type = "t3.small"
+  instance_type = "t2.micro"
 
     key_name = "ilay-private-key"
 
@@ -101,8 +101,8 @@ resource "aws_instance" "s3fm" {
     systemctl start docker
     systemctl enable docker
 
-    docker pull ilaymord/s3-file-manager:latest
-    docker run -d --restart always -p 80:80 ilaymord/s3-file-manager:latest
+    docker pull ilaymord/s3-file-manager:v1.1
+    docker run -d --restart always -p 80:80 ilaymord/s3-file-manager:v1.1
   EOF
 
   tags = {

@@ -1,8 +1,6 @@
-version: "3.9"
-
 services:
   s3-file-manager:
-    container_name: s3mgr
+    container_name: s3fm
 
     build:
       context: ..
