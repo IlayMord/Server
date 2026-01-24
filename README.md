@@ -44,6 +44,33 @@ Stop:
 docker compose -f docker/docker-compose.yml down
 ```
 
+## ☁️ Terraform (EC2 Auto Deploy)
+This repo includes Terraform that creates a VPC + EC2 instance and uses user-data
+to clone this repo and start the Docker container.
+
+### Steps
+1) Configure AWS credentials locally.
+2) Set your SSH key pair name in `terraform/variables.tf` (`key_name`).
+3) Run Terraform:
+```bash
+cd terraform
+terraform init
+terraform apply
+```
+4) When it finishes, grab the public IP:
+```bash
+terraform output public_ip
+```
+5) Open in your browser:
+```
+http://<PUBLIC_IP>
+```
+
+### What user-data does
+- Installs Docker + Docker Compose
+- Clones this repository
+- Runs `docker-compose up -d` from `docker/`
+
 ## ⚙️ Configuration
 The app stores configuration in:
 - `~/.s3-file-manager/app_config.json` (preferred)
