@@ -1,15 +1,26 @@
+version: "3.9"
+
 services:
-  s3mgr:
-    build: .
+  s3-file-manager:
+    container_name: s3mgr
+
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+
     image: s3-file-manager
+
     mem_limit: 512m
     cpus: 0.5
-    container_name: s3mgr
+
     ports:
       - "80:80"
+
     volumes:
-      - ./data:/app/data
+      - ../app/data:/app/data
+
     restart: unless-stopped
+
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 30s

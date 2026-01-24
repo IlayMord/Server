@@ -1,2 +1,17 @@
-__pycache__
-data
+# Python
+__pycache__/
+*.pyc
+.env
+
+# Data
+data/
+
+# Terraform
+.terraform/
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/.terraform.tfstate.lock.info
+
+# Logs
+*.log

@@ -21,17 +21,28 @@ Runs locally and stores configuration on the server.
 - AWS credentials with access to the target S3 bucket
 - Existing S3 bucket
 
-## 📦 Install
+## 📦 Install (Local)
 ```bash
-python3 -m pip install -r requirements.txt
+python3 -m pip install -r app/requirements.txt
 ```
 
-## ▶️ Run
+## ▶️ Run (Local)
 ```bash
-python3 server.py
+python3 app/server.py
 ```
 
 Then open `http://localhost:80` in your browser (or the port you set).
+
+## 🐳 Docker
+Build and run with compose:
+```bash
+docker compose -f docker/docker-compose.yml up -d --build
+```
+
+Stop:
+```bash
+docker compose -f docker/docker-compose.yml down
+```
 
 ## ⚙️ Configuration
 The app stores configuration in:

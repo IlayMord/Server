@@ -4,15 +4,13 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+COPY ../app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY server.py .
+COPY ../app/server.py .
 
 RUN useradd -m appuser
-RUN chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 80
-
 CMD ["python", "server.py"]
