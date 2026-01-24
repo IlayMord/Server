@@ -1,24 +1,20 @@
-provider "aws" {
-  region = "us-east-1"
-}
-
 # VPC
 resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16"
+  cidr_block = var.vpc_cidr
 
   tags = {
-    Name = "s3fm-vpc"
+    Name = "s3-file-manager-vpc"
   }
 }
 
 # Subnet (Public)
 resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
+  cidr_block              = var.subnet_cidr
   map_public_ip_on_launch = true
 
   tags = {
-    Name = "s3fm-public-subnet"
+    Name = "s3-file-manager-public-subnet"
   }
 }
 
@@ -27,7 +23,7 @@ resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
 
   tags = {
-    Name = "s3fm-igw"
+    Name = "s3-file-manager-igw"
   }
 }
 
@@ -41,7 +37,7 @@ resource "aws_route_table" "public_rt" {
   }
 
   tags = {
-    Name = "s3fm-public-rt"
+    Name = "s3-file-manager-public-rt"
   }
 }
 
@@ -78,39 +74,36 @@ resource "aws_security_group" "web_sg" {
 }
 
 # EC2 Instance
-resource "aws_instance" "s3fm" {
-  ami           = "ami-0e001c9271cf7f3b9" 
-  instance_type = "t2.micro"
+resource "aws_instance" "s3_file_manager" {
+  ami           = var.ami_id
+  instance_type = var.instance_type
 
-    key_name = "ilay-private-key"
+  key_name = var.key_name
 
   subnet_id              = aws_subnet.public.id
   vpc_security_group_ids = [aws_security_group.web_sg.id]
 
   user_data = <<-EOF
     #!/bin/bash
-    set -eux
+    set -e
 
-    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
-        sleep 5
-    done
-
-    apt-get update -y
-    apt-get install -y docker.io
+    apt update -y
+    apt install -y docker.io docker-compose git
 
     systemctl start docker
     systemctl enable docker
 
-    docker pull ilaymord/s3-file-manager:v1.1
-    docker run -d --restart always -p 80:80 ilaymord/s3-file-manager:v1.1
+    cd /home/ubuntu
+
+    if [ ! -d "s3-file-manager-server" ]; then
+        git clone https://github.com/IlayMord/s3-file-manager-server.git
+    fi
+
+    cd s3-file-manager-server/docker
+    docker-compose up -d
   EOF
 
   tags = {
     Name = "s3-file-manager-Server"
   }
-}
-
-# Output
-output "public_ip" {
-  value = aws_instance.s3fm.public_ip
 }

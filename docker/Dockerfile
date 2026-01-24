@@ -4,10 +4,10 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
-COPY ../app/requirements.txt .
+COPY app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ../app/server.py .
+COPY app/server.py .
 
 RUN useradd -m appuser
 USER appuser
