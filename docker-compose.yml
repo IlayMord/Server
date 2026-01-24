@@ -2,11 +2,14 @@ services:
   s3mgr:
     build: .
     image: s3-file-manager
+    mem_limit: 512m
+    cpus: 0.5
     container_name: s3mgr
     ports:
       - "80:80"
     volumes:
       - ./data:/app/data
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80"]
       interval: 30s
