@@ -1,7 +1,5 @@
 variable "region" {
-  description = "AWS region"
-  type        = string
-  default     = "us-east-1"
+  default = "us-east-1"
 }
 
 variable "vpc_cidr" {
@@ -13,8 +11,7 @@ variable "subnet_cidr" {
 }
 
 variable "ami_id" {
-  description = "Ubuntu 22.04 AMI (us-east-1)"
-  default     = "ami-0e001c9271cf7f3b9"
+  default = "ami-0e001c9271cf7f3b9"
 }
 
 variable "instance_type" {
@@ -22,6 +19,5 @@ variable "instance_type" {
 }
 
 variable "key_name" {
-  description = "Existing EC2 key pair name"
-  default     = "ilay-private-key"
+  default = "ilay-private-key"
 }

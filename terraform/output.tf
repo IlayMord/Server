@@ -1,3 +1,3 @@
 output "public_ip" {
-  value = aws_instance.s3_file_manager.public_ip
+  value = module.ec2.public_ip
 }
