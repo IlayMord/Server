@@ -8,6 +8,7 @@ import time
 import os
 import sys
 import boto3, ssl, json
+from cryptography.fernet import Fernet
 
 def resolve_port():
     try:
@@ -84,8 +85,8 @@ def build_s3(cfg):
             return None
         return boto3.client(
             "s3",
-            aws_access_key_id=aws["access_key"],
-            aws_secret_access_key=aws["secret_key"],
+            aws_access_key_id=decrypt(aws["access_key"]),
+            aws_secret_access_key=decrypt(aws["secret_key"]),
             region_name=aws["region"]
         )
     except Exception:
@@ -1952,8 +1953,8 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             if not access_key or not secret_key or not region:
                 return self.respond(self.render_creds_form("All fields are required."))
             config["aws"] = {
-                "access_key": access_key,
-                "secret_key": secret_key,
+                "access_key": encrypt(access_key),
+                "secret_key": encrypt(secret_key),
                 "region": region,
             }
             if not save_config(config):
@@ -2092,6 +2093,29 @@ class UploadHandler(http.server.BaseHTTPRequestHandler):
             sys.stderr.write(f"Upload failed: {e}\n")
             return self.respond_text(500, f"Upload failed: {e}")
 
+SECRET_FILE = os.path.join(CONFIG_DIR, "secret.key")
+
+def load_or_create_secret():
+    if os.path.exists(SECRET_FILE):
+        with open(SECRET_FILE, "rb") as f:
+            return f.read()
+    key = Fernet.generate_key()
+    os.makedirs(CONFIG_DIR, exist_ok=True)
+    with open(SECRET_FILE, "wb") as f:
+        f.write(key)
+    return key
+
+FERNET = Fernet(load_or_create_secret())
+
+def encrypt(text):
+    return FERNET.encrypt(text.encode()).decode()
+
+def decrypt(token):
+    try:
+        return FERNET.decrypt(token.encode()).decode()
+    except Exception:
+        # Backwards compatibility for configs saved before encryption.
+        return token
 
 # ---------- HTTPS SERVER ----------
 class ReusableTCPServer(socketserver.TCPServer):

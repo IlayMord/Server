@@ -13,7 +13,7 @@ Runs locally and stores configuration on the server.
 - Preview for common file types (images, video, audio, text, PDF)
 - Share links via pre-signed URLs
 - Bulk actions (move, copy, delete) and rename
-- Optional basic auth (username/password)
+- AWS credentials are stored encrypted on disk
 - Theme toggle (light/dark)
 
 ## ✅ Requirements
@@ -45,8 +45,8 @@ docker compose -f docker/docker-compose.yml down
 ```
 
 ## ☁️ Terraform (EC2 Auto Deploy)
-This repo includes Terraform that creates a VPC + EC2 instance and uses user-data
-to clone this repo and start the Docker container.
+This repo includes Terraform modules that create a VPC + EC2 instance and use
+user-data to clone this repo and start the Docker container.
 
 ### Steps
 1) Configure AWS credentials locally.
@@ -71,6 +71,10 @@ http://<PUBLIC_IP>
 - Clones this repository
 - Runs `docker-compose up -d` from `docker/`
 
+### Modules
+- `terraform/modules/vpc` creates the VPC, subnet, and security group.
+- `terraform/modules/ec2` creates the EC2 instance and injects user-data.
+
 ## ⚙️ Configuration
 The app stores configuration in:
 - `~/.s3-file-manager/app_config.json` (preferred)
@@ -80,9 +84,17 @@ You can override paths/ports with environment variables:
 - `S3FM_PORT` (default: `80`)
 - `S3FM_CONFIG_DIR`
 
+## 🔐 Encryption
+AWS access keys are encrypted before being written to the config file.
+The encryption key is stored locally at:
+- `<S3FM_CONFIG_DIR>/secret.key`
+
+Keep this file safe. If you delete it, existing encrypted credentials
+cannot be decrypted.
+
 ## 📝 Notes
 - `/download` streams to the browser. `/download-server` saves to `/tmp/<filename>` on the server host.
-- Credentials are stored locally on the server and are not encrypted.
+- Credentials are stored locally on the server and are encrypted.
 
 ## 🏗 Architecture Diagram
 
